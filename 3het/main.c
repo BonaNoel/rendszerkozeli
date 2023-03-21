@@ -46,10 +46,9 @@ int plus(int A, int B){
 
 int main(int argc, char const *argv[])
 {
-    int2bin(5);
+    int2bin(1500);
 
-    // int2bin(bin_inc(5));
 
-    int2bin(pupu(5));
+
     return 0;
 }

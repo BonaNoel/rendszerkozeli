@@ -5,6 +5,27 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <stdint.h>
+
+typedef struct
+{                              // Total: 54 bytes
+    uint16_t type;             // Magic identifier: 0x4d42
+    uint32_t size;             // File size in bytes
+    uint16_t reserved1;        // Not used
+    uint16_t reserved2;        // Not used
+    uint32_t offset;           // Offset to image data in bytes from beginning of file (54 bytes)
+    uint32_t dib_header_size;  // DIB Header size in bytes (40 bytes)
+    int32_t width_px;          // Width of the image
+    int32_t height_px;         // Height of image
+    uint16_t num_planes;       // Number of color planes
+    uint16_t bits_per_pixel;   // Bits per pixel
+    uint32_t compression;      // Compression type
+    uint32_t image_size_bytes; // Image size in bytes
+    int32_t x_resolution_ppm;  // Pixels per meter
+    int32_t y_resolution_ppm;  // Pixels per meter
+    uint32_t num_colors;       // Number of colors
+    uint32_t important_colors; // Important colors
+} BMPHeader;
 
 void chart_check(char *str) // 1.feladat
 {
@@ -71,7 +92,7 @@ int Measurement(int **Values) // 2.feladat
     *Values = malloc(sizeof(int) * N);
     if (!Values)
     {
-        write(2, "Memoria hiba!\n", 14);
+        perror("malloc-hiba");
         exit(1);
     }
 
@@ -82,6 +103,7 @@ int Measurement(int **Values) // 2.feladat
     while (i < N)
     {
         random_number = randfrom(0, 1.0);
+        // printf("random: %f\n", random_number);
 
         if (i == 0)
         {
@@ -116,190 +138,75 @@ int Measurement(int **Values) // 2.feladat
 void BMPcreator(int *Values, int NumValues) // 3.feladat
 {
     int f;
+
     f = open("chart.bmp", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (f < 0)
     {
-        write(2, "File error!\n", 12);
+        write(2, "error", 5);
         exit(1);
     }
 
-    int paddingValues; // NumValues + padding
+    // BITMAP HEADER 16B
+    write(f, "BM", 2); // BM 2B
+    unsigned int padding;
 
     if (NumValues % 32 == 0)
-    {
-        paddingValues = NumValues;
-    }
+        padding = 0;
     else
+        padding = 32 - (NumValues % 32);
+
+    unsigned int file_size = 62 + ((NumValues * (NumValues + padding)) / 8);
+
+    write(f, file_size, 4);                          // file size in bytes 4B (62B+pixeltömb mérete)
+    write(f, 0b00000000000000000000000000000000, 4); // unused(0) 4B
+    unsigned int pixel_array_offset = 62;
+    write(f, pixel_array_offset, 4); // pixel array offset 4B
+
+    // DIB HEADER 40B
+    write(f, 40u, 4); // DIB header size 4B
+    unsigned int row, collumn = NumValues;
+    write(f, row, 4); // image widht in pixels 4B
+    write(f, row, 4); // image height in pixels 4B // NxN-es == NxM
+    unsigned int egy = 1;
+    write(f, egy, 2);                                // planes(1) 2B
+    write(f, egy, 2);                                // Bbts/pixel(1) 2B
+    write(f, 0b00000000000000000000000000000000, 4); // compression(0) 4B
+    write(f, 0b00000000000000000000000000000000, 4); // image size(0) 4B
+    unsigned int pixel_meter = 3937;
+    write(f, pixel_meter, 4);                        // horizontal pixel/meter(3937) 4B
+    write(f, pixel_meter, 4);                        // vertical pixel/meter(3937) 4B
+    write(f, 0b00000000000000000000000000000000, 4); // colors in palette(0) 4B
+    write(f, 0b00000000000000000000000000000000, 4); // used palette colors(0) 4B
+
+    // PALETTE 8B
+    write(f, 0, 1);   // color 0 B 1B FEKETE
+    write(f, 0, 1);   // color 0 G 1B
+    write(f, 0, 1);   // color 0 R 1B
+    write(f, 255, 1); // color 0 Alpha(255) 1B
+
+    write(f, 255, 1); // color 1 B 1B FEHÉR
+    write(f, 255, 1); // color 1 G 1B
+    write(f, 255, 1); // color 1 R 1B
+    write(f, 255, 1); // color 1 Alpha(255) 1B
+
+    // PIXEL ARRAY ?B NumValues=row=collumn
+
+    unsigned int pixel_aray[row][collumn];
+    unsigned int zero = collumn / 2; // referencia 0 sor
+    unsigned int distance;
+
+    for (int i = 0; i < row; i++)
     {
-        paddingValues = NumValues + (32 - (NumValues % 32));
-    }
 
-    int fileSize = 62 + (NumValues * paddingValues) / 8; // 62 byte + NxN(paddingel, byteba)
-
-    unsigned char *buffer = calloc(fileSize, sizeof(char));
-
-    // // // BITMAP HEADER 16 Byte // // //
-
-    // Signature ("BM") 2 Byte
-    buffer[0] = 'B';
-    buffer[1] = 'M';
-
-    // File size in bytes 4 Byte
-    int tmp = fileSize;
-    int j = 0;
-    for (int i = 2; i < 6; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF); // 0xFF --> 11111111
-        j++;
-    }
-
-    //  Unused (0) 4 Byte
-    for (int i = 6; i < 10; i++)
-    {
-        buffer[i] = 0x00; // 0x00 --> 00000000
-    }
-
-    // Pixel array offset (62) 4 Bytes
-    tmp = 62;
-    j = 0;
-    for (int i = 10; i < 14; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // // // DIB HEADER 40 Byte // // //
-
-    // DIB Header size (40) 4 Byte
-    tmp = 40;
-    j = 0;
-    for (int i = 14; i < 18; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Image widht (N) in pixels 4 byte
-    tmp = NumValues;
-    j = 0;
-    for (int i = 18; i < 22; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Image height (N) in pixels 4 byte
-    tmp = NumValues;
-    j = 0;
-    for (int i = 22; i < 26; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    //  Planes (1) 2 Byte
-    tmp = 1;
-    j = 0;
-    for (int i = 26; i < 28; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Bits/pixel (1) 2 Byte
-    tmp = 1;
-    j = 0;
-    for (int i = 28; i < 30; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Compression (0) 4 Byte
-    tmp = 0;
-    j = 0;
-    for (int i = 30; i < 34; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Image size (0) 4 Byte
-    tmp = 0;
-    j = 0;
-    for (int i = 34; i < 38; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Horizontal pixel/meter (3937) 4 Byte
-    tmp = 3937;
-    j = 0;
-    for (int i = 38; i < 42; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Vertical pixel/meter (3937) 4 Byte
-    tmp = 3937;
-    j = 0;
-    for (int i = 42; i < 46; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Colors in palette (0) 4 Byte
-    tmp = 0;
-    j = 0;
-    for (int i = 46; i < 50; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Used palette colors (0) 4 Byte
-    tmp = 0;
-    j = 0;
-    for (int i = 50; i < 54; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // // // Palette 8 Byte // // //
-
-    // color 0  All 1 Byte
-    buffer[54] = 30;   // B
-    buffer[55] = 150;   // G
-    buffer[56] = 105;   // R
-    buffer[57] = 255; // Alpha (255)
-
-    // color 1  All 1 Byte
-    buffer[58] = 155; // B
-    buffer[59] = 100; // G
-    buffer[60] = 20; // R
-    buffer[61] = 255; // Alpha (255)
-
-    for (int i = 62; i < fileSize; i++)
-    {
-        if (i % 10 < 5)
+        for (int j = 0; j < collumn; j++)
         {
-            buffer[i] = 0;
-        }
-        else
-        {
-            buffer[i] = 255;
+            pixel_aray[i][j] = 0;
         }
     }
 
-    write(f, buffer, fileSize);
-    printf("\n%d\n", fileSize);
+    write(f, pixel_aray, sizeof(pixel_aray));
 
     close(f);
-    free(buffer);
 }
 
 int main(int argc, char *argv[])
@@ -369,11 +276,11 @@ int main(int argc, char *argv[])
     {
         N = Measurement(&results);
 
-        // for (int i = 0; i < N; i++)
-        // {
-        //     printf("%d ", results[i]);
-        // }
-        // printf("\n");
+        for (int i = 0; i < N; i++)
+        {
+            printf("%d ", results[i]);
+        }
+        printf("\n");
 
         /////////////////////////////////////////////////////////////////
 
