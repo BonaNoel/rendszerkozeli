@@ -2,4 +2,4 @@ dummy:
 	echo "szia"
 
 it:
-	gcc ./main.c -o chart && ./chart
+	gcc main.c utils.c -o chart

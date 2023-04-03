@@ -2,304 +2,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <signal.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 
-void chart_check(char *str) // 1.feladat
+#include "utils.h"
+
+// reciev uzenmodba a signalra meghivja
+void signal_handler(int sig)
 {
-
-    if (strstr(str, "chart") == NULL)
+    if (sig == SIGUSR1)
     {
-        printf("//HIBA - nem \"chart\" az állomány neve \n");
-
-        exit(1);
+        ReceiveViaFile(sig);
     }
-}
-
-void version_argument() // 1.feladat
-{
-    printf("Version: 1.0\n");
-    printf("2023-03-01\n");
-    printf("Pepsi Béla\n");
-
-    exit(0);
-}
-
-void help_argument() // 1.feladat
-{
-    printf("Help: \n");
-    printf("A programot a következő paraméterekkel lehet használni: \n");
-    printf("--version: kiírja a program verzióját \n");
-    printf("--help: kiírja a program használati utasításait \n");
-    printf("A program üzemmódjai:\n");
-    printf("-send: küldőként viselkedik (alapértelmezett)\n");
-    printf("-receive: fogadóként viselkedik\n");
-    printf("-file: fájlt használ a komunikáció során (alapértelmezett)\n");
-    printf("-socket: socketet használ a komuniukáció során\n");
-
-    exit(0);
-}
-
-/* generate a random floating point number from min to max */
-double randfrom(double min, double max) // 2.feladat.
-{
-    double range = (max - min);
-    double div = RAND_MAX / range;
-    return min + (rand() / div);
-}
-
-int Measurement(int **Values) // 2.feladat
-{
-    time_t T1;
-    struct tm *T2;
-    int T3;
-
-    T3 = time(&T1);
-    T2 = localtime(&T1);
-    int N = (((*T2).tm_min % 15) * 60) + (*T2).tm_sec;
-
-    if (N < 100)
-    {
-        N = 100;
-    }
-
-    // 0.428571 x+1                 0........0.3548387096774194...0.571429..........1
-    // 0.3548387096774194 x-1 --->>       x-1                   x           x + 1
-    // 0.2165902903225807 x
-
-    *Values = malloc(sizeof(int) * N);
-    if (!Values)
-    {
-        write(2, "Memoria hiba!\n", 14);
-        exit(1);
-    }
-
-    int x = 0;
-    double random_number;
-    int i = 0;
-
-    while (i < N)
-    {
-        random_number = randfrom(0, 1.0);
-
-        if (i == 0)
-        {
-            (*Values)[i] = x;
-        }
-        else
-        {
-            if (random_number < 0.3548387096774194)
-            {
-                x = x - 1;
-                (*Values)[i] = x;
-            }
-            else if (0.3548387096774194 < random_number && random_number < 0.571429)
-            {
-                x = x + 0;
-                (*Values)[i] = x;
-            }
-            else if (0.571429 < random_number)
-            {
-                x = x + 1;
-                (*Values)[i] = x;
-            }
-        }
-
-        // printf("valuse: %d \n", (*Values)[i]);
-        i++;
-    }
-
-    return N;
-}
-
-void BMPcreator(int *Values, int NumValues) // 3.feladat
-{
-    int f;
-    f = open("chart.bmp", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-    if (f < 0)
-    {
-        write(2, "File error!\n", 12);
-        exit(1);
-    }
-
-    int paddingValues; // NumValues + padding
-
-    if (NumValues % 32 == 0)
-    {
-        paddingValues = NumValues;
-    }
-    else
-    {
-        paddingValues = NumValues + (32 - (NumValues % 32));
-    }
-
-    int fileSize = 62 + (NumValues * paddingValues) / 8; // 62 byte + NxN(paddingel, byteba)
-
-    unsigned char *buffer = calloc(fileSize, sizeof(char));
-
-    // // // BITMAP HEADER 16 Byte // // //
-
-    // Signature ("BM") 2 Byte
-    buffer[0] = 'B';
-    buffer[1] = 'M';
-
-    // File size in bytes 4 Byte
-    int tmp = fileSize;
-    int j = 0;
-    for (int i = 2; i < 6; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF); // 0xFF --> 11111111
-        j++;
-    }
-
-    //  Unused (0) 4 Byte
-    for (int i = 6; i < 10; i++)
-    {
-        buffer[i] = 0x00; // 0x00 --> 00000000
-    }
-
-    // Pixel array offset (62) 4 Bytes
-    tmp = 62;
-    j = 0;
-    for (int i = 10; i < 14; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // // // DIB HEADER 40 Byte // // //
-
-    // DIB Header size (40) 4 Byte
-    tmp = 40;
-    j = 0;
-    for (int i = 14; i < 18; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Image widht (N) in pixels 4 byte
-    tmp = NumValues;
-    j = 0;
-    for (int i = 18; i < 22; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Image height (N) in pixels 4 byte
-    tmp = NumValues;
-    j = 0;
-    for (int i = 22; i < 26; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    //  Planes (1) 2 Byte
-    tmp = 1;
-    j = 0;
-    for (int i = 26; i < 28; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Bits/pixel (1) 2 Byte
-    tmp = 1;
-    j = 0;
-    for (int i = 28; i < 30; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Compression (0) 4 Byte
-    tmp = 0;
-    j = 0;
-    for (int i = 30; i < 34; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Image size (0) 4 Byte
-    tmp = 0;
-    j = 0;
-    for (int i = 34; i < 38; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Horizontal pixel/meter (3937) 4 Byte
-    tmp = 3937;
-    j = 0;
-    for (int i = 38; i < 42; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Vertical pixel/meter (3937) 4 Byte
-    tmp = 3937;
-    j = 0;
-    for (int i = 42; i < 46; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Colors in palette (0) 4 Byte
-    tmp = 0;
-    j = 0;
-    for (int i = 46; i < 50; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // Used palette colors (0) 4 Byte
-    tmp = 0;
-    j = 0;
-    for (int i = 50; i < 54; i++)
-    {
-        buffer[i] = ((tmp << (8 * j)) & 0xFF);
-        j++;
-    }
-
-    // // // Palette 8 Byte // // //
-
-    // color 0  All 1 Byte
-    buffer[54] = 30;   // B
-    buffer[55] = 150;   // G
-    buffer[56] = 105;   // R
-    buffer[57] = 255; // Alpha (255)
-
-    // color 1  All 1 Byte
-    buffer[58] = 155; // B
-    buffer[59] = 100; // G
-    buffer[60] = 20; // R
-    buffer[61] = 255; // Alpha (255)
-
-    for (int i = 62; i < fileSize; i++)
-    {
-        if (i % 10 < 5)
-        {
-            buffer[i] = 0;
-        }
-        else
-        {
-            buffer[i] = 255;
-        }
-    }
-
-    write(f, buffer, fileSize);
-    printf("\n%d\n", fileSize);
-
-    close(f);
-    free(buffer);
 }
 
 int main(int argc, char *argv[])
@@ -313,6 +27,7 @@ int main(int argc, char *argv[])
     int is_file = 1; // default
     int is_socket = 0;
 
+    // ellenorzi a nevet
     chart_check(argv[0]);
 
     for (int i = 1; i < argc; i++)
@@ -357,31 +72,30 @@ int main(int argc, char *argv[])
         printf("file\n");
     if (is_socket)
         printf("socket\n");
-    /////////////////////////////////////////////////////////////////
 
-    // 2.feladat
-    /////////////////////////////////////////////////////////////////
-    int *results = NULL;
+    // eredmények
+    int *measurment_results = NULL;
 
+    // eredmények száma
     int N;
 
-    if (is_send)
+    if (is_send && is_file)
     {
-        N = Measurement(&results);
+        N = Measurement(&measurment_results);
+        printf("Ennyi szam van(mainbe(N)): %d\n",N),
 
-        // for (int i = 0; i < N; i++)
-        // {
-        //     printf("%d ", results[i]);
-        // }
-        // printf("\n");
+        SendViaFile(measurment_results, N);
 
-        /////////////////////////////////////////////////////////////////
-
-        // 3.feladat
-        /////////////////////////////////////////////////////////////////
-
-        BMPcreator(results, N);
+        free(measurment_results);
     }
+
+    if (is_receive && is_file)
+    {
+
+        signal(SIGUSR1, signal_handler);
+        pause();
+    }
+
     printf("A program lefutott!\n");
     return 0;
 }
