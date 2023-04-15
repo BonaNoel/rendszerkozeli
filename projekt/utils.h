@@ -19,4 +19,6 @@ void SendViaFile(int *Values, int NumValues); // 5.feladat
 
 void ReceiveViaFile(int sig); // 5.feladat
 
+void SendViaSocket(int *Values, int NumValues); // 6.feladat
+
 #endif

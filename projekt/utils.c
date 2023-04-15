@@ -69,7 +69,6 @@ int Measurement(int **Values) // 2.feladat
         N = 100;
     }
 
-    printf("Ennyi szam van(measurement): %d\n", N);
     // 0.428571 x+1                 0........0.3548387096774194...0.571429..........1
     // 0.3548387096774194 x-1 --->>       x-1                   x           x + 1
     // 0.2165902903225807 x
@@ -394,7 +393,6 @@ void SendViaFile(int *Values, int NumValues) // 5.feladat
     for (int i = 0; i < NumValues; i++)
     {
         fprintf(f, "%d\n", Values[i]);
-        printf(" i: %d ",i);
     }
 
     fclose((f));
@@ -445,7 +443,12 @@ void ReceiveViaFile(int sig) // 5.feladat
 
     fclose(f);
 
-    BMPcreator(Values, i + 1);
+    BMPcreator(Values, i);
 
     free(Values);
+}
+
+void SendViaSocket(int *Values, int NumValues) // 6.feladat
+{
+
 }
