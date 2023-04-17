@@ -322,10 +322,46 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
 
     for (int i = 0; i < NumValues; i++)
     {
+        printf(" %d " ,Values[i]);
+
+        unsigned int bytebuffer[8];
+
+        unsigned int size = 1;
+        unsigned int pindex = 0;
+        unsigned int *positionbuffer = malloc(sizeof(unsigned int) * size);
+
+        unsigned int start = (i / 8) * 8;
+        unsigned int end = (i / 8) * 8 + 8;
+        unsigned positon;
+
+        for (int j = start; j < end; j++)
+        {
+            positon =  8 - (end-j);
+            if (Values[i] == Values[j])
+            {
+                
+                positionbuffer = realloc(positionbuffer,sizeof(unsigned int)*size);
+                positionbuffer[pindex] = positon;
+                size++;
+                pindex++;
+            }
+            
+        }
+
+        if (i == 12)
+        {
+            for (int k = 0; k < size-1; k++)
+            {
+                printf("|s %d e|", positionbuffer[k]);
+            }
+            
+        }
         
+        
+
         buffer[(62 + ((paddingValues) * ((NumValues / 2) + Values[i])) / 8) + (i / 8)] = 0x01 << (8 - (i % 8));
     }
-
+    printf("\n");
     write(f, buffer, fileSize);
 
     // INFO //
