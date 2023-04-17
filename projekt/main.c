@@ -74,19 +74,19 @@ int main(int argc, char *argv[])
         printf("socket\n");
 
     // eredmények
-    int *measurment_results = NULL;
+    int *Values = NULL;
 
     // eredmények száma
-    int N;
+    int NumValues;
 
+    /************ FILE  ************/
     if (is_send && is_file)
     {
-        N = Measurement(&measurment_results);
-        printf("Ennyi szam van(mainbe(N)): %d\n",N),
+        NumValues = Measurement(&Values);
 
-        SendViaFile(measurment_results, N);
+        SendViaFile(Values, NumValues);
 
-        free(measurment_results);
+        free(Values);
     }
 
     if (is_receive && is_file)
@@ -95,6 +95,22 @@ int main(int argc, char *argv[])
         signal(SIGUSR1, signal_handler);
         pause();
     }
+
+    /************ SOCKET  ************/
+
+    if (is_send && is_socket)
+    {
+        NumValues = Measurement(&Values);
+
+        SendViaSocket(Values,NumValues);
+        
+        free(Values);
+    }
+    if (is_receive && is_socket)
+    {
+        ReceiveViaSocket();
+    }
+    
 
     printf("A program lefutott!\n");
     return 0;

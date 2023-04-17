@@ -8,8 +8,13 @@
 #include <dirent.h>
 #include <ctype.h>
 #include <signal.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "utils.h"
+
+#define PORT_NO 3333
 
 void chart_check(char *str) // 1.feladat
 {
@@ -143,7 +148,7 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
 
     unsigned char *buffer = calloc(fileSize, sizeof(char)); // calloc kinullaz mindent
 
-    // // // BITMAP HEADER 16 Byte // // //
+    /*********** BITMAP HEADER 16 Byte *************/
 
     // Signature ("BM") 2 Byte
     buffer[0] = 'B';
@@ -173,7 +178,7 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
         j++;
     }
 
-    // // // DIB HEADER 40 Byte // // //
+    /*********** DIB HEADER 40 Byte ***********/
 
     // DIB Header size (40) 4 Byte
     tmp = 40;
@@ -274,8 +279,7 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
         j++;
     }
 
-    // // // Palette 8 Byte // // //
-
+    /********** Palette 8 Byte ******************/
     // color 0  All 1 Byte
     buffer[54] = 0;   // B
     buffer[55] = 0;   // G
@@ -288,8 +292,9 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
     buffer[60] = 20;  // R
     buffer[61] = 255; // Alpha (255)
 
-    printf("Ennyi szam van(bmpcreator): %d\n", NumValues);
-    printf("Ennyi szam van paddingel: %d\n", paddingValues);
+    // INFO //
+    // printf("Ennyi szam van(bmpcreator): %d\n", NumValues);
+    // printf("Ennyi szam van paddingel: %d\n", paddingValues);
 
     // padding values = sor   Numvalues = oszlop  kb
     // int xy = (62 + (paddingValues * (NumValues / 2) +- SOR) / 8) +- OSZLOP;
@@ -317,11 +322,14 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
 
     for (int i = 0; i < NumValues; i++)
     {
+        
         buffer[(62 + ((paddingValues) * ((NumValues / 2) + Values[i])) / 8) + (i / 8)] = 0x01 << (8 - (i % 8));
     }
 
     write(f, buffer, fileSize);
-    printf("\nFILESIZE: %d\n", fileSize);
+
+    // INFO //
+    // printf("\nFILESIZE: %d\n", fileSize);
 
     close(f);
     free(buffer);
@@ -451,4 +459,208 @@ void ReceiveViaFile(int sig) // 5.feladat
 void SendViaSocket(int *Values, int NumValues) // 6.feladat
 {
 
+    /************************ Declarations **********************/
+    int s;                     // socket ID
+    int bytes;                 // received/sent bytes
+    int flag;                  // transmission flag
+    char on;                   // sockopt option
+    char buffer[1024];         // datagram buffer area
+    unsigned int server_size;  // length of the sockaddr_in server
+    struct sockaddr_in server; // address of server
+
+    /************************ Initialization ********************/
+    on = 1;
+    flag = 0;
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    server.sin_port = htons(PORT_NO);
+    server_size = sizeof server;
+
+    /************************ Creating socket *******************/
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s < 0)
+    {
+        fprintf(stderr, " Chart(send): Socket creation error.\n");
+        exit(2);
+    }
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
+    setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof on);
+
+    /************************ Sending Numvalues **********************/
+
+    // Numvalues küldése
+    bytes = sendto(s, &NumValues, sizeof(NumValues), flag, (struct sockaddr *)&server, server_size);
+    if (bytes <= 0)
+    {
+        fprintf(stderr, " Chart(send): Sending error.\n");
+        exit(3);
+    }
+
+    // INFO //
+    // printf(" %i bytes have been sent to SERVER (Sending NumValues)1.\n", bytes);
+    // printf("Numvalues: %d\n", NumValues);
+
+    /************************ Receive Numvalues checksum **********************/
+    int checksum;
+    bytes = recvfrom(s, &checksum, sizeof(checksum), flag, (struct sockaddr *)&server, &server_size);
+    if (bytes < 0)
+    {
+        fprintf(stderr, " Chart(send): Receiving error.\n");
+        exit(4);
+    }
+
+    // INFO //
+    // printf(" %i bytes have been recieved from SERVER (Recieve Data Values checksum)2.\n", bytes);
+
+    if (checksum != NumValues)
+    {
+        fprintf(stderr, "NumValues checksum failed");
+        exit(5);
+    }
+
+    /************************ Sending Data Values **********************/
+
+    int data[NumValues];
+
+    for (int i = 0; i < NumValues; i++) // data-ba a Value ertekei hogy egybe at tudjuk küldeni
+    {
+        data[i] = Values[i];
+    }
+
+    bytes = sendto(s, data, sizeof(data), flag, (struct sockaddr *)&server, server_size);
+    if (bytes <= 0)
+    {
+        fprintf(stderr, " Chart(send): Sending error.\n");
+        exit(3);
+    }
+
+    // INFO //
+    // printf(" %i bytes have been sent to SERVER (Sending Data Values)3.\n", bytes);
+
+    checksum = bytes; // elküldött bájtok
+    /************************ Recieve Data Values checksum **********************/
+    int tmp;
+    bytes = recvfrom(s, &tmp, sizeof(tmp), flag, (struct sockaddr *)&server, &server_size);
+    if (bytes < 0)
+    {
+        fprintf(stderr, " Chart(send): Receiving error.\n");
+        exit(4);
+    }
+
+    // INFO //
+    //  printf(" %i bytes have been recieved from SERVER (Recieve Data Values checksum)4.\n", bytes);
+
+    if (sizeof(data) != tmp)
+    {
+        fprintf(stderr, "Data bytes checksum failed\n");
+        exit(5);
+    }
+
+    close(s);
+}
+
+void ReceiveViaSocket() // 6.feladat
+{
+    /************************ Declarations **********************/
+    int s;                     // socket ID
+    int bytes;                 // received/sent bytes
+    int err;                   // error code
+    int flag;                  // transmission flag
+    char on;                   // sockopt option
+    char buffer[1024];         // datagram buffer area
+    unsigned int server_size;  // length of the sockaddr_in server
+    unsigned int client_size;  // length of the sockaddr_in client
+    struct sockaddr_in server; // address of server
+    struct sockaddr_in client; // address of client
+
+    /************************ Initialization ********************/
+    on = 1;
+    flag = 0;
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = INADDR_ANY;
+    server.sin_port = htons(PORT_NO);
+    server_size = sizeof server;
+    client_size = sizeof client;
+    // signal(SIGINT, stop);
+    // signal(SIGTERM, stop);
+
+    /************************ Creating socket *******************/
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s < 0)
+    {
+        fprintf(stderr, " Chart(receive): Socket creation error.\n");
+        exit(2);
+    }
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
+    setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof on);
+
+    /************************ Binding socket ********************/
+    err = bind(s, (struct sockaddr *)&server, server_size);
+    if (err < 0)
+    {
+        fprintf(stderr, " Chart(receive): Binding error.\n");
+        exit(3);
+    }
+
+    while (1) // Continuous server operation
+    {
+        /************************ Receive Numvalues**********************/
+        int Num_values;
+        bytes = recvfrom(s, &Num_values, sizeof(Num_values), flag, (struct sockaddr *)&client, &client_size);
+        if (bytes < 0)
+        {
+            fprintf(stderr, " Chart(receive): Receiving error.\n");
+            exit(4);
+        }
+
+        // INFO //
+        // printf(" %i bytes have been recieved from CLIENT (Recieve Numvalues)1.\n", bytes);
+        // printf("Numvalues: %d\n", Num_values);
+
+        /************************ Sending Numvalues checksum **********************/
+        bytes = sendto(s, &Num_values, sizeof(Num_values), flag, (struct sockaddr *)&client, client_size);
+        if (bytes <= 0)
+        {
+            fprintf(stderr, " Chart(receive): Sending error.\n");
+            exit(5);
+        }
+
+        // INFO //
+        // printf(" %i bytes have been sent to CLIENT (Send Numvalues checksum)2.\n", bytes);
+
+        /************************ Receive data **********************/
+        int *Data = malloc(sizeof(int) * Num_values);
+
+        bytes = recvfrom(s, Data, sizeof(int) * Num_values, flag, (struct sockaddr *)&client, &client_size);
+        if (bytes < 0)
+        {
+            fprintf(stderr, " Chart(receive): Receiving error.\n");
+            exit(4);
+        }
+
+        // INFO //
+        // printf(" %i bytes have been recieved from CLIENT (Recieve data)3.\n", bytes);
+
+        int checksum = bytes;
+
+        /************************ Sending data checksum **********************/
+
+        bytes = sendto(s, &checksum, sizeof(checksum), flag, (struct sockaddr *)&client, client_size);
+        if (bytes <= 0)
+        {
+            fprintf(stderr, " Chart(receive): Sending error.\n");
+            exit(5);
+        }
+
+        // INFO //
+        // printf(" %i bytes have been sent to CLIENT (Send data checksum)4.\n", bytes);
+
+        BMPcreator(Data, Num_values);
+
+        free(Data);
+    }
+}
+
+void SignalHandler(int sig) // 7.feladat
+{
 }

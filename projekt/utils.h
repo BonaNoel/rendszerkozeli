@@ -21,4 +21,8 @@ void ReceiveViaFile(int sig); // 5.feladat
 
 void SendViaSocket(int *Values, int NumValues); // 6.feladat
 
+void ReceiveViaSocket(); // 6.feladat
+
+void SignalHandler(int sig); // 7.feladat
+
 #endif
