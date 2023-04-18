@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <math.h>
 
 #include "utils.h"
 
@@ -31,7 +32,7 @@ void version_argument() // 1.feladat
 {
     printf("Version: 1.0\n");
     printf("2023-03-01\n");
-    printf("Pepsi Béla\n");
+    printf("Bóna Noel\n");
 
     exit(0);
 }
@@ -322,44 +323,24 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
 
     for (int i = 0; i < NumValues; i++)
     {
-        printf(" %d " ,Values[i]);
+        // INFO  
+        // printf(" %d ", Values[i]);
 
-        unsigned int bytebuffer[8];
+        int bytebuffer = 0;
 
-        unsigned int size = 1;
-        unsigned int pindex = 0;
-        unsigned int *positionbuffer = malloc(sizeof(unsigned int) * size);
+        int positon;
 
-        unsigned int start = (i / 8) * 8;
-        unsigned int end = (i / 8) * 8 + 8;
-        unsigned positon;
-
-        for (int j = start; j < end; j++)
+        // mindig 8-asával haalad/néz --> byteonként pl ha i = 12 akkor az 8-és 16 között nézi
+        for (int j = (i / 8) * 8; j < (i / 8) * 8 + 8; j++)
         {
-            positon =  8 - (end-j);
-            if (Values[i] == Values[j])
+            positon = 8 - (((i / 8) * 8 + 8) - j); // a 8 biten hogy melyik helyen van pl: 0 1 2 3 ... egészen 7-ig
+            if (Values[i] == Values[j]) // és ha van ugyanolyan értékű akkor abban a 7-ben + önmaga
             {
-                
-                positionbuffer = realloc(positionbuffer,sizeof(unsigned int)*size);
-                positionbuffer[pindex] = positon;
-                size++;
-                pindex++;
+                bytebuffer += pow(2, 7 - positon); // 
             }
-            
         }
 
-        if (i == 12)
-        {
-            for (int k = 0; k < size-1; k++)
-            {
-                printf("|s %d e|", positionbuffer[k]);
-            }
-            
-        }
-        
-        
-
-        buffer[(62 + ((paddingValues) * ((NumValues / 2) + Values[i])) / 8) + (i / 8)] = 0x01 << (8 - (i % 8));
+        buffer[(62 + ((paddingValues) * ((NumValues / 2) + Values[i])) / 8) + (i / 8)] = bytebuffer;
     }
     printf("\n");
     write(f, buffer, fileSize);
