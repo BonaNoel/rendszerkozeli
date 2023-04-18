@@ -7,17 +7,12 @@
 
 #include "utils.h"
 
-// reciev uzenmodba a signalra meghivja
-void signal_handler(int sig)
-{
-    if (sig == SIGUSR1)
-    {
-        ReceiveViaFile(sig);
-    }
-}
 
 int main(int argc, char *argv[])
 {
+    signal(SIGINT,SignalHandler);
+    signal(SIGUSR1,SignalHandler);
+
 
     srand(time(NULL)); // 2.feladat
     // 1.feladat
@@ -92,7 +87,7 @@ int main(int argc, char *argv[])
     if (is_receive && is_file)
     {
 
-        signal(SIGUSR1, signal_handler);
+        signal(SIGUSR1, ReceiveViaFile);
         pause();
     }
 

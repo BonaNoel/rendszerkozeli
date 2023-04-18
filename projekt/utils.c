@@ -282,15 +282,15 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
 
     /********** Palette 8 Byte ******************/
     // color 0  All 1 Byte
-    buffer[54] = 0;   // B
-    buffer[55] = 0;   // G
-    buffer[56] = 0;   // R
+    buffer[54] = 79;   // B
+    buffer[55] = 69;   // G
+    buffer[56] = 54;   // R
     buffer[57] = 255; // Alpha (255)
 
     // color 1  All 1 Byte
-    buffer[58] = 190; // B
-    buffer[59] = 100; // G
-    buffer[60] = 20;  // R
+    buffer[58] = 0; // B
+    buffer[59] = 255; // G
+    buffer[60] = 255;  // R
     buffer[61] = 255; // Alpha (255)
 
     // INFO //
@@ -323,7 +323,7 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
 
     for (int i = 0; i < NumValues; i++)
     {
-        // INFO  
+        // INFO
         // printf(" %d ", Values[i]);
 
         int bytebuffer = 0;
@@ -334,15 +334,14 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
         for (int j = (i / 8) * 8; j < (i / 8) * 8 + 8; j++)
         {
             positon = 8 - (((i / 8) * 8 + 8) - j); // a 8 biten hogy melyik helyen van pl: 0 1 2 3 ... egészen 7-ig
-            if (Values[i] == Values[j]) // és ha van ugyanolyan értékű akkor abban a 7-ben + önmaga
+            if (Values[i] == Values[j])            // és ha van ugyanolyan értékű akkor abban a 7-ben + önmaga
             {
-                bytebuffer += pow(2, 7 - positon); // 
+                bytebuffer += pow(2, 7 - positon); //
             }
         }
 
         buffer[(62 + ((paddingValues) * ((NumValues / 2) + Values[i])) / 8) + (i / 8)] = bytebuffer;
     }
-    printf("\n");
     write(f, buffer, fileSize);
 
     // INFO //
@@ -517,6 +516,9 @@ void SendViaSocket(int *Values, int NumValues) // 6.feladat
     // printf(" %i bytes have been sent to SERVER (Sending NumValues)1.\n", bytes);
     // printf("Numvalues: %d\n", NumValues);
 
+    signal(SIGALRM,SignalHandler);
+    alarm(1);
+
     /************************ Receive Numvalues checksum **********************/
     int checksum;
     bytes = recvfrom(s, &checksum, sizeof(checksum), flag, (struct sockaddr *)&server, &server_size);
@@ -526,6 +528,7 @@ void SendViaSocket(int *Values, int NumValues) // 6.feladat
         exit(4);
     }
 
+    alarm(0);
     // INFO //
     // printf(" %i bytes have been recieved from SERVER (Recieve Data Values checksum)2.\n", bytes);
 
@@ -680,4 +683,19 @@ void ReceiveViaSocket() // 6.feladat
 
 void SignalHandler(int sig) // 7.feladat
 {
+    if (sig == SIGINT)
+    {
+        printf("A folyamat leállítás alatt\n");
+        exit(0);
+    }
+    else if (sig == SIGUSR1)
+    {
+        fprintf(stderr, "A fájlon keresztüli küldés szolgáltatás nem elérhető!\n");
+        exit(1);
+    }
+    else if (sig == SIGALRM)
+    {
+        fprintf(stderr,"A szerver nem válaszol\n");
+        exit(1);
+    }
 }
