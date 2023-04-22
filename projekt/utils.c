@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <math.h>
+#include <omp.h>
 
 #include "utils.h"
 
@@ -30,11 +31,23 @@ void chart_check(char *str) // 1.feladat
 
 void version_argument() // 1.feladat
 {
-    printf("Version: 1.0\n");
-    printf("2023-03-01\n");
-    printf("Bóna Noel\n");
+    #pragma omp parallel sections
+    {
+    #pragma omp section
+        {
+            printf("Version: 1.24\n");
+        }
+    #pragma omp section
+        {
+            printf("2023-04-21\n");
+        }
+    #pragma omp section
+        {
+            printf("Bóna Noel\n");
+        }
+    }
 
-    exit(0);
+exit(0);
 }
 
 void help_argument() // 1.feladat
@@ -282,15 +295,15 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
 
     /********** Palette 8 Byte ******************/
     // color 0  All 1 Byte
-    buffer[54] = 79;   // B
-    buffer[55] = 69;   // G
-    buffer[56] = 54;   // R
+    buffer[54] = 79;  // B
+    buffer[55] = 69;  // G
+    buffer[56] = 54;  // R
     buffer[57] = 255; // Alpha (255)
 
     // color 1  All 1 Byte
-    buffer[58] = 0; // B
+    buffer[58] = 0;   // B
     buffer[59] = 255; // G
-    buffer[60] = 255;  // R
+    buffer[60] = 255; // R
     buffer[61] = 255; // Alpha (255)
 
     // INFO //
@@ -516,7 +529,7 @@ void SendViaSocket(int *Values, int NumValues) // 6.feladat
     // printf(" %i bytes have been sent to SERVER (Sending NumValues)1.\n", bytes);
     // printf("Numvalues: %d\n", NumValues);
 
-    signal(SIGALRM,SignalHandler);
+    signal(SIGALRM, SignalHandler);
     alarm(1);
 
     /************************ Receive Numvalues checksum **********************/
@@ -695,7 +708,7 @@ void SignalHandler(int sig) // 7.feladat
     }
     else if (sig == SIGALRM)
     {
-        fprintf(stderr,"A szerver nem válaszol\n");
+        fprintf(stderr, "A szerver nem válaszol\n");
         exit(1);
     }
 }

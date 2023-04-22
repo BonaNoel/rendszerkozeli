@@ -1,0 +1,51 @@
+
+/*** Summary of OpenMP ***/
+
+// Compilation of a C program which using OpenMP.
+gcc parallel.c -o parallel -fopenmp
+
+// Necessary header.
+#include<omp.h>
+
+// Beginning of parallel sections. The following instruction or block will run parallel.
+#pragma omp parallel
+
+// Getting the number of processors (cores).
+NumProcs = omp_get_num_procs();
+
+// Getting the number of threads.
+NumThreads = omp_get_num_threads();
+
+// Getting the identifier of the thread.
+ThreadID = omp_get_thread_num();
+
+// Setting the number of threads in compilation time.
+#pragma omp parallel num_threads(2)
+
+// Setting the number of threads in run time.
+omp_set_num_threads(2);
+
+// Synchronization point. Each thread has to wait here till the last thread comes.
+#pragma omp barrier
+
+// Private and shared variables. Default is private.
+#pragma omp parallel private(a,b) shared(c,d)
+
+// Beginning of critical section. Only one thread runs this code at each moment.
+#pragma omp critical
+
+// The execution of following 'for' iteration will be distributed between threads
+#pragma omp parallel for
+
+// Parallel sections where each thread can have different tasks.
+#pragma omp parallel sections
+   #pragma omp section
+      // Section one
+   #pragma omp section
+      // Section two
+
+// Only the master thread does the following block.
+#pragma omp master
+
+// Only one thread does the following block. Not determined which one.
+#pragma omp single
