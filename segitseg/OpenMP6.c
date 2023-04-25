@@ -13,11 +13,11 @@ int main(){
   int C[4]={0,0,0,0};
   omp_set_num_threads(4);
 //  #pragma omp parallel for 
-//  #pragma omp parallel for schedule(static,1)
+  #pragma omp parallel for schedule(static,1)
 //  #pragma omp parallel for schedule(static,5)
 //  #pragma omp parallel for schedule(dynamic,1)
 //  #pragma omp parallel for schedule(dynamic,5)
-  #pragma omp parallel for schedule(guided)
+//  #pragma omp parallel for schedule(guided)
     for(i=0;i<N;i++){
       int j,ID;
       ID=omp_get_thread_num();

@@ -7,12 +7,10 @@
 
 #include "utils.h"
 
-
 int main(int argc, char *argv[])
 {
-    signal(SIGINT,SignalHandler);
-    signal(SIGUSR1,SignalHandler);
-
+    signal(SIGINT, SignalHandler);
+    signal(SIGUSR1, SignalHandler);
 
     srand(time(NULL)); // 2.feladat
     // 1.feladat
@@ -86,9 +84,11 @@ int main(int argc, char *argv[])
 
     if (is_receive && is_file)
     {
-
-        signal(SIGUSR1, ReceiveViaFile);
-        pause();
+        while (1)
+        {
+            signal(SIGUSR1, ReceiveViaFile);
+            pause();
+        }
     }
 
     /************ SOCKET  ************/
@@ -97,15 +97,14 @@ int main(int argc, char *argv[])
     {
         NumValues = Measurement(&Values);
 
-        SendViaSocket(Values,NumValues);
-        
+        SendViaSocket(Values, NumValues);
+
         free(Values);
     }
     if (is_receive && is_socket)
     {
         ReceiveViaSocket();
     }
-    
 
     printf("A program lefutott!\n");
     return 0;

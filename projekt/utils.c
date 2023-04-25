@@ -18,99 +18,100 @@
 
 #define PORT_NO 3333
 
-void chart_check(char *str) // 1.feladat
+/* Megnézi hogy az állomány neve 'chart'-e */
+void chart_check(char *str)
 {
-
-    if (strstr(str, "chart") == NULL)
+    // string compare
+    if (strcmp(str, "./chart") != 0)
     {
-        printf("//HIBA - nem \"chart\" az állomány neve \n");
-
+        fprintf(stderr, "HIBA - nem \"chart\" az állomány neve \n");
         exit(1);
     }
 }
 
-void version_argument() // 1.feladat
+/* Ki iratja a version információkta */
+void version_argument()
 {
-    #pragma omp parallel sections
+#pragma omp parallel sections
     {
-    #pragma omp section
+#pragma omp section
         {
             printf("Version: 1.24\n");
         }
-    #pragma omp section
+#pragma omp section
         {
             printf("2023-04-21\n");
         }
-    #pragma omp section
+#pragma omp section
         {
             printf("Bóna Noel\n");
         }
     }
 
-exit(0);
+    exit(0);
 }
 
-void help_argument() // 1.feladat
+/* Ki iratja a help információkat */
+void help_argument()
 {
-    printf("Help: \n");
-    printf("A programot a következő paraméterekkel lehet használni: \n");
-    printf("--version: kiírja a program verzióját \n");
-    printf("--help: kiírja a program használati utasításait \n");
+    printf("\nA programot a következő paraméterekkel lehet használni: \n");
+    printf("\t--version: kiírja a program verzióját \n");
+    printf("\t--help: kiírja a program használati utasításait\n\n");
     printf("A program üzemmódjai:\n");
-    printf("-send: küldőként viselkedik (alapértelmezett)\n");
-    printf("-receive: fogadóként viselkedik\n");
-    printf("-file: fájlt használ a komunikáció során (alapértelmezett)\n");
-    printf("-socket: socketet használ a komuniukáció során\n");
+    printf("\t-send: küldő üzenmód (alapértelmezett)\n");
+    printf("\t-receive: fogadó üzenmód\n");
+    printf("\t-file: fájlt használ a komunikáció során (alapértelmezett)\n");
+    printf("\t-socket: socketet használ a komuniukáció során\n\n");
 
     exit(0);
 }
 
-/* generate a random floating point number from min to max */
-double randfrom(double min, double max) // 2.feladat.
+/* Generál egy random double tipusu számot min és max között (zárt intervallum) */
+double randfrom(double min, double max)
 {
     double range = (max - min);
     double div = RAND_MAX / range;
     return min + (rand() / div);
 }
 
-int Measurement(int **Values) // 2.feladat
+/* Feltölti az N méretű tömböt a bolyongás értékeivel */
+int Measurement(int **Values)
 {
+    // Időkezelés
     time_t T1;
     struct tm *T2;
     int T3;
 
     T3 = time(&T1);
     T2 = localtime(&T1);
+
+    // Maradékosan osztja a perceket 15-el majd megszorozza 60-al plusz hozzáadja a másodperceket
     int N = (((*T2).tm_min % 15) * 60) + (*T2).tm_sec;
 
     if (N < 100)
-    {
         N = 100;
-    }
 
-    // 0.428571 x+1                 0........0.3548387096774194...0.571429..........1
-    // 0.3548387096774194 x-1 --->>       x-1                   x           x + 1
+    // 0.428571 x+1                 0........0.3548387096774194........0.571429..........1
+    // 0.3548387096774194 x-1 --->>       x-1                   x                x + 1
     // 0.2165902903225807 x
 
     *Values = malloc(sizeof(int) * N);
     if (!Values)
     {
-        write(2, "Memoria hiba!\n", 14);
-        exit(1);
+        fprintf(stderr, "HIBA - nem sikerült a memória foglalás\n");
+        exit(2);
     }
 
-    int x = 0;
+    int x = 0; // Érték
     double random_number;
-    int i = 0;
+    int i = 0; // Index
 
     while (i < N)
     {
         random_number = randfrom(0, 1.0);
 
         if (i == 0)
-        {
             (*Values)[i] = x;
-        }
         else
         {
             if (random_number < 0.3548387096774194)
@@ -129,38 +130,32 @@ int Measurement(int **Values) // 2.feladat
                 (*Values)[i] = x;
             }
         }
-
-        // printf("valuse: %d \n", (*Values)[i]);
         i++;
     }
-
     return N;
 }
 
-void BMPcreator(int *Values, int NumValues) // 3.feladat
+/* Megcsinálja a .bmp fájlt */
+void BMPcreator(int *Values, int NumValues)
 {
     int f;
     f = open("chart.bmp", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
     if (f < 0)
     {
-        write(2, "File error!\n", 12);
-        exit(1);
+        fprintf(stderr, "HIBA - Nem sikerült megnyitni / írni a chart.bmp fájlt\n");
+        exit(3);
     }
 
     int paddingValues;
 
     if (NumValues % 32 == 0)
-    {
         paddingValues = NumValues;
-    }
     else
-    {
         paddingValues = NumValues + (32 - (NumValues % 32));
-    }
 
     int fileSize = 62 + (NumValues * paddingValues) / 8; // 62 byte + NxN(paddingel, byteba)
 
-    unsigned char *buffer = calloc(fileSize, sizeof(char)); // calloc kinullaz mindent
+    unsigned char *buffer = calloc(fileSize, sizeof(char)); // calloc kinulláz mindent
 
     /*********** BITMAP HEADER 16 Byte *************/
 
@@ -306,10 +301,6 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
     buffer[60] = 255; // R
     buffer[61] = 255; // Alpha (255)
 
-    // INFO //
-    // printf("Ennyi szam van(bmpcreator): %d\n", NumValues);
-    // printf("Ennyi szam van paddingel: %d\n", paddingValues);
-
     // padding values = sor   Numvalues = oszlop  kb
     // int xy = (62 + (paddingValues * (NumValues / 2) +- SOR) / 8) +- OSZLOP;
     // SOR = Values[i] oszlop = i/8
@@ -336,41 +327,34 @@ void BMPcreator(int *Values, int NumValues) // 3.feladat
 
     for (int i = 0; i < NumValues; i++)
     {
-        // INFO
-        // printf(" %d ", Values[i]);
-
         int bytebuffer = 0;
-
         int positon;
 
-        // mindig 8-asával haalad/néz --> byteonként pl ha i = 12 akkor az 8-és 16 között nézi
+        // mindig 8-asával halad/néz --> byteonként pl ha i = 12 akkor az 8-és 16 között nézi
         for (int j = (i / 8) * 8; j < (i / 8) * 8 + 8; j++)
         {
             positon = 8 - (((i / 8) * 8 + 8) - j); // a 8 biten hogy melyik helyen van pl: 0 1 2 3 ... egészen 7-ig
             if (Values[i] == Values[j])            // és ha van ugyanolyan értékű akkor abban a 7-ben + önmaga
             {
-                bytebuffer += pow(2, 7 - positon); //
+                bytebuffer += pow(2, 7 - positon); // beirja azt hogy 1 vagy 0 van a biten csak decimálisba (2 hatványra emel)
             }
         }
-
         buffer[(62 + ((paddingValues) * ((NumValues / 2) + Values[i])) / 8) + (i / 8)] = bytebuffer;
     }
-    write(f, buffer, fileSize);
 
-    // INFO //
-    // printf("\nFILESIZE: %d\n", fileSize);
+    write(f, buffer, fileSize);
 
     close(f);
     free(buffer);
 }
 
-int FindPID() // 4-5.feladat
+/* megkeresi a másik chart folyamat pid-jét (ha van) */
+int FindPID()
 {
-    char looking_for[256] = "chart"; // process neve amit keresünk
-    char path_buffer[300];           // elérési út megformázva
-    char text_buffer[256];           // test name kiirás
-    int own_pid = getpid();          // saját pid
-    int pid = -1;                    // keresett pid
+    char path_buffer[300];  // elérési út megformázva
+    char name_buffer[256];  // process name
+    int own_pid = getpid(); // saját pid
+    int pid = -1;           // keresett pid
     int tmp = -1;
     FILE *f;
     DIR *d;
@@ -387,9 +371,9 @@ int FindPID() // 4-5.feladat
 
             f = fopen(path_buffer, "r");
 
-            fscanf(f, "Name:\t%s\n", text_buffer); // process neve
+            fscanf(f, "Name:\t%s\n", name_buffer); // process neve
 
-            if (strcmp(text_buffer, looking_for) == 0) // process név = a keresett névvel
+            if (strcmp(name_buffer, "chart") == 0) // process név = a keresett névvel
             {
                 fscanf(f, "%*[^\n]\n"); // elspkippel 4 sort + 1 mert az elsőt már elhagytuk
                 fscanf(f, "%*[^\n]\n"); // igy a Pid-es sorra ér
@@ -398,21 +382,18 @@ int FindPID() // 4-5.feladat
                 fscanf(f, "Pid:\t%d\n", &tmp);
 
                 if (tmp != own_pid) // ha nem a saját pid akkor maradhat
-                {
                     pid = tmp;
-                }
             }
-
             fclose(f);
         }
     }
     closedir(d);
 
-    printf("%d\n", pid);
     return pid;
 }
 
-void SendViaFile(int *Values, int NumValues) // 5.feladat
+/* Megirja a Measurement.txt majd küld egy signált */
+void SendViaFile(int *Values, int NumValues)
 {
     FILE *f;
     char file_path[128];
@@ -423,8 +404,8 @@ void SendViaFile(int *Values, int NumValues) // 5.feladat
     f = fopen(file_path, "w");
     if (f == NULL)
     {
-        fprintf(stderr, "Hiba a fájlal!\n");
-        exit(1);
+        fprintf(stderr, "HIBA - Nem sikerült megnyitni / írni a Measurement.txt fájlt\n");
+        exit(3);
     }
 
     for (int i = 0; i < NumValues; i++)
@@ -438,16 +419,15 @@ void SendViaFile(int *Values, int NumValues) // 5.feladat
 
     if (other_pid == -1)
     {
-        fprintf(stderr, "Hiba! Nincs fogadó üzenmódú folyamat!");
-        exit(1);
+        fprintf(stderr, "HIBA - Nincs fájl fogadó üzenmódú folyamat\n");
+        exit(4);
     }
     else
-    {
         kill(other_pid, SIGUSR1);
-    }
 }
 
-void ReceiveViaFile(int sig) // 5.feladat
+/* Beolvassa a Measurements.txt és meghívja rá a BMPcreator-t */
+void ReceiveViaFile(int sig)
 {
     FILE *f;
     char file_path[128];
@@ -458,8 +438,8 @@ void ReceiveViaFile(int sig) // 5.feladat
     f = fopen(file_path, "r");
     if (f == NULL)
     {
-        fprintf(stderr, "Hiba a fájlal!\n");
-        exit(1);
+        fprintf(stderr, "HIBA - Nem sikerült megnyitni / olvasni a Measurement.txt fájlt\n");
+        exit(3);
     }
 
     int i = 0;
@@ -479,13 +459,12 @@ void ReceiveViaFile(int sig) // 5.feladat
     }
 
     fclose(f);
-
     BMPcreator(Values, i);
-
     free(Values);
 }
 
-void SendViaSocket(int *Values, int NumValues) // 6.feladat
+/* UDP-vel átküldi az értékeket (Numvalues, Values) */
+void SendViaSocket(int *Values, int NumValues) 
 {
 
     /************************ Declarations **********************/
@@ -509,8 +488,8 @@ void SendViaSocket(int *Values, int NumValues) // 6.feladat
     s = socket(AF_INET, SOCK_DGRAM, 0);
     if (s < 0)
     {
-        fprintf(stderr, " Chart(send): Socket creation error.\n");
-        exit(2);
+        fprintf(stderr, "HIBA - Nem sikerült socket-et létrehozni (send)\n");
+        exit(5);
     }
     setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
     setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof on);
@@ -621,8 +600,8 @@ void ReceiveViaSocket() // 6.feladat
     s = socket(AF_INET, SOCK_DGRAM, 0);
     if (s < 0)
     {
-        fprintf(stderr, " Chart(receive): Socket creation error.\n");
-        exit(2);
+        fprintf(stderr, "HIBA - Nem sikerült socket-et létrehozni (recieve)\n");
+        exit(5);
     }
     setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof on);
     setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof on);
