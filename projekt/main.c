@@ -12,9 +12,8 @@ int main(int argc, char *argv[])
     signal(SIGINT, SignalHandler);
     signal(SIGUSR1, SignalHandler);
 
-    srand(time(NULL)); // 2.feladat
-    // 1.feladat
-    // ////////////////////////////////////////////////////////////////
+    srand(time(NULL)); 
+
     int is_send = 1; // default
     int is_receive = 0;
     int is_file = 1; // default
@@ -56,15 +55,6 @@ int main(int argc, char *argv[])
         else
             help_argument();
     }
-
-    if (is_send)
-        printf("send\n");
-    if (is_receive)
-        printf("receive\n");
-    if (is_file)
-        printf("file\n");
-    if (is_socket)
-        printf("socket\n");
 
     // eredmények
     int *Values = NULL;

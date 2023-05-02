@@ -58,10 +58,10 @@ void help_argument()
     printf("\t--version: kiírja a program verzióját \n");
     printf("\t--help: kiírja a program használati utasításait\n\n");
     printf("A program üzemmódjai:\n");
-    printf("\t-send: küldő üzenmód (alapértelmezett)\n");
-    printf("\t-receive: fogadó üzenmód\n");
-    printf("\t-file: fájlt használ a komunikáció során (alapértelmezett)\n");
-    printf("\t-socket: socketet használ a komuniukáció során\n\n");
+    printf("\t-send: küldő üzemmód (alapértelmezett)\n");
+    printf("\t-receive: fogadó üzemmód\n");
+    printf("\t-file: fájlt használ a kommunikáció során (alapértelmezett)\n");
+    printf("\t-socket: socketet használ a kommuniukáció során\n\n");
 
     exit(0);
 }
@@ -110,6 +110,7 @@ int Measurement(int **Values)
     {
         random_number = randfrom(0, 1.0);
 
+        // első elem 0
         if (i == 0)
             (*Values)[i] = x;
         else
@@ -174,9 +175,7 @@ void BMPcreator(int *Values, int NumValues)
 
     //  Unused (0) 4 Byte
     for (int i = 6; i < 10; i++)
-    {
         buffer[i] = 0x00; // 0x00 --> 00000000
-    }
 
     // Pixel array offset (62) 4 Bytes
     tmp = 62;
@@ -334,7 +333,21 @@ void BMPcreator(int *Values, int NumValues)
         for (int j = (i / 8) * 8; j < (i / 8) * 8 + 8; j++)
         {
             positon = 8 - (((i / 8) * 8 + 8) - j); // a 8 biten hogy melyik helyen van pl: 0 1 2 3 ... egészen 7-ig
-            if (Values[i] == Values[j])            // és ha van ugyanolyan értékű akkor abban a 7-ben + önmaga
+
+            // az az eset amikor fölül ki menne az érték a képből
+            if (Values[i] > (NumValues / 2))
+            {
+                if ((NumValues) % 2 == 0)
+                    Values[i] = (NumValues / 2) - 1;
+                else
+                    Values[i] = (NumValues / 2);
+            }
+
+            // az az eset amikor alul ki menne az érték a képből (itt nem kell vizsgálni a páros páratlant)
+            if (Values[i] < (NumValues / 2) * (-1))
+                Values[i] = ((NumValues / 2) * (-1));
+
+            if (Values[i] == Values[j]) // és ha van ugyanolyan értékű akkor abban a 7-ben + önmaga
             {
                 bytebuffer += pow(2, 7 - positon); // beirja azt hogy 1 vagy 0 van a biten csak decimálisba (2 hatványra emel)
             }
@@ -409,9 +422,7 @@ void SendViaFile(int *Values, int NumValues)
     }
 
     for (int i = 0; i < NumValues; i++)
-    {
         fprintf(f, "%d\n", Values[i]);
-    }
 
     fclose((f));
 
@@ -464,7 +475,7 @@ void ReceiveViaFile(int sig)
 }
 
 /* UDP-vel átküldi az értékeket (Numvalues, Values) */
-void SendViaSocket(int *Values, int NumValues) 
+void SendViaSocket(int *Values, int NumValues)
 {
 
     /************************ Declarations **********************/
@@ -500,14 +511,11 @@ void SendViaSocket(int *Values, int NumValues)
     bytes = sendto(s, &NumValues, sizeof(NumValues), flag, (struct sockaddr *)&server, server_size);
     if (bytes <= 0)
     {
-        fprintf(stderr, " Chart(send): Sending error.\n");
-        exit(3);
+        fprintf(stderr, "HIBA - Nem sikerült az adat küldés (send)\n");
+        exit(6);
     }
 
-    // INFO //
-    // printf(" %i bytes have been sent to SERVER (Sending NumValues)1.\n", bytes);
-    // printf("Numvalues: %d\n", NumValues);
-
+    // 1 másodperces időzítő hogy működik-e a komunikáció
     signal(SIGALRM, SignalHandler);
     alarm(1);
 
@@ -516,18 +524,16 @@ void SendViaSocket(int *Values, int NumValues)
     bytes = recvfrom(s, &checksum, sizeof(checksum), flag, (struct sockaddr *)&server, &server_size);
     if (bytes < 0)
     {
-        fprintf(stderr, " Chart(send): Receiving error.\n");
-        exit(4);
+        fprintf(stderr, "HIBA - Nem sikerült az adat fogadás (send)\n");
+        exit(7);
     }
 
     alarm(0);
-    // INFO //
-    // printf(" %i bytes have been recieved from SERVER (Recieve Data Values checksum)2.\n", bytes);
 
     if (checksum != NumValues)
     {
-        fprintf(stderr, "NumValues checksum failed");
-        exit(5);
+        fprintf(stderr, "HIBA - Cheksum érték nem megfelelő (send)\n");
+        exit(8);
     }
 
     /************************ Sending Data Values **********************/
@@ -535,19 +541,14 @@ void SendViaSocket(int *Values, int NumValues)
     int data[NumValues];
 
     for (int i = 0; i < NumValues; i++) // data-ba a Value ertekei hogy egybe at tudjuk küldeni
-    {
         data[i] = Values[i];
-    }
 
     bytes = sendto(s, data, sizeof(data), flag, (struct sockaddr *)&server, server_size);
     if (bytes <= 0)
     {
-        fprintf(stderr, " Chart(send): Sending error.\n");
-        exit(3);
+        fprintf(stderr, "HIBA - Nem sikerült az adat küldés (send)\n");
+        exit(6);
     }
-
-    // INFO //
-    // printf(" %i bytes have been sent to SERVER (Sending Data Values)3.\n", bytes);
 
     checksum = bytes; // elküldött bájtok
     /************************ Recieve Data Values checksum **********************/
@@ -555,23 +556,21 @@ void SendViaSocket(int *Values, int NumValues)
     bytes = recvfrom(s, &tmp, sizeof(tmp), flag, (struct sockaddr *)&server, &server_size);
     if (bytes < 0)
     {
-        fprintf(stderr, " Chart(send): Receiving error.\n");
-        exit(4);
+        fprintf(stderr, "HIBA - Nem sikerült az adat fogadás (send)\n");
+        exit(7);
     }
-
-    // INFO //
-    //  printf(" %i bytes have been recieved from SERVER (Recieve Data Values checksum)4.\n", bytes);
 
     if (sizeof(data) != tmp)
     {
-        fprintf(stderr, "Data bytes checksum failed\n");
-        exit(5);
+        fprintf(stderr, "HIBA - Cheksum érték nem megfelelő (send)\n");
+        exit(8);
     }
 
     close(s);
 }
 
-void ReceiveViaSocket() // 6.feladat
+/* UDP szerver oldal, fogadja az adotot majd meghívja rá a BMPcreator-t*/
+void ReceiveViaSocket()
 {
     /************************ Declarations **********************/
     int s;                     // socket ID
@@ -593,8 +592,6 @@ void ReceiveViaSocket() // 6.feladat
     server.sin_port = htons(PORT_NO);
     server_size = sizeof server;
     client_size = sizeof client;
-    // signal(SIGINT, stop);
-    // signal(SIGTERM, stop);
 
     /************************ Creating socket *******************/
     s = socket(AF_INET, SOCK_DGRAM, 0);
@@ -610,8 +607,8 @@ void ReceiveViaSocket() // 6.feladat
     err = bind(s, (struct sockaddr *)&server, server_size);
     if (err < 0)
     {
-        fprintf(stderr, " Chart(receive): Binding error.\n");
-        exit(3);
+        fprintf(stderr, "HIBA - Nem sikerült kötni a socketet (receive)\n");
+        exit(9);
     }
 
     while (1) // Continuous server operation
@@ -621,37 +618,32 @@ void ReceiveViaSocket() // 6.feladat
         bytes = recvfrom(s, &Num_values, sizeof(Num_values), flag, (struct sockaddr *)&client, &client_size);
         if (bytes < 0)
         {
-            fprintf(stderr, " Chart(receive): Receiving error.\n");
-            exit(4);
+            fprintf(stderr, "HIBA - Nem sikerült az adat fogadás (receive)\n");
+            exit(7);
         }
-
-        // INFO //
-        // printf(" %i bytes have been recieved from CLIENT (Recieve Numvalues)1.\n", bytes);
-        // printf("Numvalues: %d\n", Num_values);
 
         /************************ Sending Numvalues checksum **********************/
         bytes = sendto(s, &Num_values, sizeof(Num_values), flag, (struct sockaddr *)&client, client_size);
         if (bytes <= 0)
         {
-            fprintf(stderr, " Chart(receive): Sending error.\n");
-            exit(5);
+            fprintf(stderr, "HIBA - Nem sikerült az adat küldés (receive)\n");
+            exit(6);
         }
 
-        // INFO //
-        // printf(" %i bytes have been sent to CLIENT (Send Numvalues checksum)2.\n", bytes);
-
         /************************ Receive data **********************/
-        int *Data = malloc(sizeof(int) * Num_values);
+        int *Data = malloc(sizeof(int) * Num_values); // terület lefoglalása
+        if (!Data)
+        {
+            fprintf(stderr, "HIBA - nem sikerült a memória foglalás\n");
+            exit(2);
+        }
 
         bytes = recvfrom(s, Data, sizeof(int) * Num_values, flag, (struct sockaddr *)&client, &client_size);
         if (bytes < 0)
         {
-            fprintf(stderr, " Chart(receive): Receiving error.\n");
-            exit(4);
+            fprintf(stderr, "HIBA - Nem sikerült az adat fogadás (receive)\n");
+            exit(7);
         }
-
-        // INFO //
-        // printf(" %i bytes have been recieved from CLIENT (Recieve data)3.\n", bytes);
 
         int checksum = bytes;
 
@@ -660,12 +652,9 @@ void ReceiveViaSocket() // 6.feladat
         bytes = sendto(s, &checksum, sizeof(checksum), flag, (struct sockaddr *)&client, client_size);
         if (bytes <= 0)
         {
-            fprintf(stderr, " Chart(receive): Sending error.\n");
-            exit(5);
+            fprintf(stderr, "HIBA - Nem sikerült az adat küldés (receive)\n");
+            exit(6);
         }
-
-        // INFO //
-        // printf(" %i bytes have been sent to CLIENT (Send data checksum)4.\n", bytes);
 
         BMPcreator(Data, Num_values);
 
@@ -673,7 +662,8 @@ void ReceiveViaSocket() // 6.feladat
     }
 }
 
-void SignalHandler(int sig) // 7.feladat
+/* Lekezeli a signálokat */
+void SignalHandler(int sig)
 {
     if (sig == SIGINT)
     {
@@ -682,12 +672,12 @@ void SignalHandler(int sig) // 7.feladat
     }
     else if (sig == SIGUSR1)
     {
-        fprintf(stderr, "A fájlon keresztüli küldés szolgáltatás nem elérhető!\n");
-        exit(1);
+        fprintf(stderr, " HIBA - A fájlon keresztüli küldés szolgáltatás nem elérhető\n");
+        exit(10);
     }
     else if (sig == SIGALRM)
     {
-        fprintf(stderr, "A szerver nem válaszol\n");
-        exit(1);
+        fprintf(stderr, "HIBA - A szerver nem válaszol\n");
+        exit(11);
     }
 }
